@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Simple E-commerce Store</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container header-inner">
+        <h1 class="brand">Ayush Store</h1>
+        <div class="header-controls">
+          <label class="field">
+            <input id="searchInput" type="search" placeholder="Search products" aria-label="Search products" />
+          </label>
+          <label class="field">
+            <select id="sortSelect" aria-label="Sort products">
+              <option value="popularity">Sort: Popularity</option>
+              <option value="price-asc">Price: Low to High</option>
+              <option value="price-desc">Price: High to Low</option>
+              <option value="name-asc">Name: A → Z</option>
+              <option value="name-desc">Name: Z → A</option>
+            </select>
+          </label>
+          <label class="field">
+            <select id="currencySelect" aria-label="Select currency">
+              <option value="USD">USD $</option>
+              <option value="INR">INR ₹</option>
+            </select>
+          </label>
+          <button id="cartButton" class="button button-cart" aria-haspopup="dialog" aria-controls="cartDrawer" aria-expanded="false">
+            <span>Cart</span>
+            <span id="cartCount" class="badge">0</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="container main">
+      <section aria-labelledby="productsHeading">
+        <h2 id="productsHeading" class="visually-hidden">Products</h2>
+        <div id="productGrid" class="product-grid" role="list"></div>
+        <div id="emptyState" class="empty-state" hidden>
+          <p>No products match your search.</p>
+        </div>
+      </section>
+    </main>
+
+    <aside id="cartDrawer" class="cart-drawer" role="dialog" aria-modal="true" aria-labelledby="cartTitle" aria-hidden="true">
+      <div class="cart-content">
+        <div class="cart-header">
+          <h2 id="cartTitle">Your Cart</h2>
+          <button id="closeCart" class="icon-button" aria-label="Close cart">✕</button>
+        </div>
+        <div id="cartItems" class="cart-items"></div>
+        <div class="cart-footer">
+          <div class="cart-total">
+            <span>Total</span>
+            <strong id="cartTotal">$0.00</strong>
+          </div>
+          <button id="checkoutButton" class="button button-primary">Checkout</button>
+        </div>
+      </div>
+      <button id="cartBackdrop" class="cart-backdrop" aria-label="Close cart"></button>
+    </aside>
+
+    <footer class="site-footer">
+      <div class="container">
+        <small>© <span id="year"></span> Ayush Store. All rights reserved.</small>
+      </div>
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>
+
+

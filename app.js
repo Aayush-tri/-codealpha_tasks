@@ -1,310 +1,347 @@
-// Remote data
-const API_BASE = "/api";
+/* ═══════════════════════════════════════════
+   AYUSH STORE — app.js
+   ═══════════════════════════════════════════ */
 
-// Demo products (used only if API returns empty)
-const SAMPLE_PRODUCTS = [
-  { id: 1, name: "Wireless Headphones", slug: "p1", price: 59.99, image_url: "https://images.unsplash.com/photo-1518449079783-5ce36c56de1c?q=80&w=800&auto=format&fit=crop", popularity: 98, category: "Audio" },
-  { id: 2, name: "Smart Watch", slug: "p2", price: 89.99, image_url: "https://images.unsplash.com/photo-1516574187841-cb9cc2ca948b?q=80&w=800&auto=format&fit=crop", popularity: 92, category: "Wearables" },
-  { id: 3, name: "Gaming Mouse", slug: "p3", price: 29.99, image_url: "https://images.unsplash.com/photo-1596445836561-cf0b0f3a3f59?q=80&w=800&auto=format&fit=crop", popularity: 85, category: "Accessories" }
-];
+'use strict';
 
-// State
-const state = {
-  products: [],
-  search: "",
-  sort: "popularity",
-  cart: loadCart(),
-  currency: loadCurrency(),
-  exchangeRates: { USD: 1, INR: 83 },
+// ── Currency Config ─────────────────────────────────────────────────────────
+const CURRENCY_CONFIG = {
+  USD: { symbol: '$', rate: 1,      locale: 'en-US' },
+  INR: { symbol: '₹', rate: 83.12,  locale: 'en-IN' },
 };
 
-// Utilities
-function saveCurrency(code) {
-  try { localStorage.setItem("currency", code); } catch (_) {}
-}
+// ── Product Data ─────────────────────────────────────────────────────────────
+const PRODUCTS = [
+  {
+    id: 1, name: 'Merino Wool Tee',
+    desc: 'Breathable 100% merino wool, naturally odour-resistant and soft against skin.',
+    price: 58, category: 'Apparel', emoji: '👕', popularity: 95,
+  },
+  {
+    id: 2, name: 'Canvas Tote Bag',
+    desc: 'Heavy-duty 12oz canvas with reinforced handles and an interior zip pocket.',
+    price: 34, category: 'Bags', emoji: '🛍️', popularity: 88,
+  },
+  {
+    id: 3, name: 'Ceramic Pour-Over',
+    desc: 'Hand-thrown stoneware dripper with a heat-retaining matte glaze finish.',
+    price: 46, category: 'Kitchen', emoji: '☕', popularity: 72,
+  },
+  {
+    id: 4, name: 'Leather Wallet',
+    desc: 'Full-grain leather bifold, waxed edges, holds 8 cards and slim cash slot.',
+    price: 79, category: 'Accessories', emoji: '👜', popularity: 91,
+  },
+  {
+    id: 5, name: 'Wireless Earbuds',
+    desc: 'ANC-enabled, 32-hour total battery life, IPX5 water resistant.',
+    price: 129, category: 'Tech', emoji: '🎧', popularity: 98,
+  },
+  {
+    id: 6, name: 'Notebook — Dot Grid',
+    desc: '192 pages of 100gsm paper, lay-flat binding, bookmark ribbon.',
+    price: 22, category: 'Stationery', emoji: '📓', popularity: 76,
+  },
+  {
+    id: 7, name: 'Plant-Based Candle',
+    desc: 'Soy wax with cedar & vetiver fragrance, 60-hour burn time.',
+    price: 38, category: 'Home', emoji: '🕯️', popularity: 83,
+  },
+  {
+    id: 8, name: 'Titanium Pen',
+    desc: 'CNC-machined titanium barrel, refillable Schmidt ink cartridge.',
+    price: 65, category: 'Stationery', emoji: '🖊️', popularity: 69,
+  },
+  {
+    id: 9, name: 'Linen Throw',
+    desc: 'Stone-washed linen blend in a natural undyed weave, 140 × 180 cm.',
+    price: 110, category: 'Home', emoji: '🛋️', popularity: 77,
+  },
+  {
+    id: 10, name: 'Portable Charger',
+    desc: '20,000 mAh, 65W GaN PD, charges laptops and phones simultaneously.',
+    price: 89, category: 'Tech', emoji: '🔋', popularity: 94,
+  },
+  {
+    id: 11, name: 'Cork Yoga Mat',
+    desc: 'Naturally antimicrobial cork surface, 5mm recycled rubber base.',
+    price: 96, category: 'Wellness', emoji: '🧘', popularity: 80,
+  },
+  {
+    id: 12, name: 'Cold Brew Bottle',
+    desc: '1L borosilicate glass, silicone sleeve, fine-mesh stainless filter.',
+    price: 42, category: 'Kitchen', emoji: '🍶', popularity: 86,
+  },
+];
 
-function loadCurrency() {
-  try {
-    return localStorage.getItem("currency") || "USD";
-  } catch (_) {
-    return "USD";
+// ── State ────────────────────────────────────────────────────────────────────
+const state = {
+  cart: [],                 // [{ product, qty }]
+  search: '',
+  sort: 'popularity',
+  currency: 'USD',
+};
+
+// ── DOM Refs ─────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const productGrid    = $('productGrid');
+const emptyState     = $('emptyState');
+const cartDrawer     = $('cartDrawer');
+const cartButton     = $('cartButton');
+const closeCart      = $('closeCart');
+const cartBackdrop   = $('cartBackdrop');
+const cartCount      = $('cartCount');
+const cartItems      = $('cartItems');
+const cartTotalEl    = $('cartTotal');
+const checkoutButton = $('checkoutButton');
+const searchInput    = $('searchInput');
+const sortSelect     = $('sortSelect');
+const currencySelect = $('currencySelect');
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function formatPrice(usdPrice) {
+  const { rate, locale, symbol } = CURRENCY_CONFIG[state.currency];
+  const converted = usdPrice * rate;
+  if (state.currency === 'INR') {
+    return symbol + Math.round(converted).toLocaleString(locale);
   }
+  return symbol + converted.toFixed(2);
 }
 
-function convertPrice(valueUSD) {
-  const rate = state.exchangeRates[state.currency] || 1;
-  return Number(valueUSD) * rate;
+function getCartTotal() {
+  return state.cart.reduce((sum, { product, qty }) => sum + product.price * qty, 0);
 }
 
-function formatCurrency(valueUSD) {
-  const amount = convertPrice(valueUSD);
-  return new Intl.NumberFormat(undefined, { style: "currency", currency: state.currency }).format(amount);
+function getCartItemCount() {
+  return state.cart.reduce((sum, { qty }) => sum + qty, 0);
 }
 
-function saveCart(cart) {
-  localStorage.setItem("cart", JSON.stringify(cart));
-}
-
-function loadCart() {
-  try {
-    const raw = localStorage.getItem("cart");
-    return raw ? JSON.parse(raw) : {};
-  } catch (_) {
-    return {};
-  }
-}
-
-function getCartCount(cart) {
-  return Object.values(cart).reduce((sum, item) => sum + item.quantity, 0);
-}
-
-function getCartTotal(cart) {
-  return Object.values(cart).reduce((sum, item) => sum + Number(item.price) * Number(item.quantity), 0);
-}
-
-// Renderers
-function renderProducts() {
-  const grid = document.getElementById("productGrid");
-  const empty = document.getElementById("emptyState");
-  const query = state.search.trim().toLowerCase();
-
-  let items = state.products.filter(p => p.name.toLowerCase().includes(query));
-
+function getFilteredSorted() {
+  const q = state.search.trim().toLowerCase();
+  let list = PRODUCTS.filter(p =>
+    !q ||
+    p.name.toLowerCase().includes(q) ||
+    p.category.toLowerCase().includes(q) ||
+    p.desc.toLowerCase().includes(q)
+  );
   switch (state.sort) {
-    case "price-asc":
-      items.sort((a, b) => Number(a.price) - Number(b.price)); break;
-    case "price-desc":
-      items.sort((a, b) => Number(b.price) - Number(a.price)); break;
-    case "name-asc":
-      items.sort((a, b) => a.name.localeCompare(b.name)); break;
-    case "name-desc":
-      items.sort((a, b) => b.name.localeCompare(a.name)); break;
-    default:
-      items.sort((a, b) => b.popularity - a.popularity);
+    case 'price-asc':  list.sort((a, b) => a.price - b.price);                         break;
+    case 'price-desc': list.sort((a, b) => b.price - a.price);                         break;
+    case 'name-asc':   list.sort((a, b) => a.name.localeCompare(b.name));              break;
+    case 'name-desc':  list.sort((a, b) => b.name.localeCompare(a.name));              break;
+    default:           list.sort((a, b) => b.popularity - a.popularity);               break;
   }
+  return list;
+}
 
-  grid.innerHTML = "";
-  if (items.length === 0) {
-    empty.hidden = false;
+// ── Render Products ──────────────────────────────────────────────────────────
+function renderProducts() {
+  const list = getFilteredSorted();
+
+  if (!list.length) {
+    productGrid.innerHTML = '';
+    emptyState.hidden = false;
     return;
   }
-  empty.hidden = true;
+  emptyState.hidden = true;
 
-  for (const p of items) {
-    const inCartQty = state.cart[p.id]?.quantity || 0;
-    const card = document.createElement("article");
-    card.className = "card";
-    card.setAttribute("role", "listitem");
-    card.innerHTML = `
-      <div class="card-media">
-        <img src="${p.image_url || p.image || ''}" alt="${p.name}" loading="lazy"/>
-      </div>
-      <div class="card-body">
-        <h3 class="title">${p.name}</h3>
-        <div class="price-row">
-          <span class="price">${formatCurrency(Number(p.price))}</span>
-          <span class="muted">${p.category || ''}</span>
+  productGrid.innerHTML = list.map((p, i) => {
+    const inCart = state.cart.find(c => c.product.id === p.id);
+    return `
+      <article class="product-card" role="listitem" style="animation-delay:${i * 0.05}s">
+        <span class="product-category">${p.category}</span>
+        <div class="product-image-wrap">
+          <div class="product-emoji" aria-hidden="true">${p.emoji}</div>
         </div>
-        <div class="add-row">
-          <button class="button button-primary" data-add="${p.id}">Add to Cart</button>
-          <div class="qty-control">
-            <button class="icon-button" data-dec="${p.id}" aria-label="Decrease quantity">−</button>
-            <span aria-live="polite" data-qty="${p.id}">${inCartQty}</span>
-            <button class="icon-button" data-inc="${p.id}" aria-label="Increase quantity">+</button>
+        <div class="product-info">
+          <h3 class="product-name">${p.name}</h3>
+          <p class="product-desc">${p.desc}</p>
+          <div class="product-footer">
+            <span class="product-price">${formatPrice(p.price)}</span>
+            <button
+              class="add-to-cart${inCart ? ' added' : ''}"
+              data-id="${p.id}"
+              aria-label="Add ${p.name} to cart"
+            >
+              ${inCart ? '✓ Added' : '+ Add'}
+            </button>
           </div>
         </div>
-      </div>
-    `;
-    grid.appendChild(card);
-  }
+      </article>`;
+  }).join('');
 }
 
+// ── Render Cart ──────────────────────────────────────────────────────────────
 function renderCart() {
-  const itemsEl = document.getElementById("cartItems");
-  const countEl = document.getElementById("cartCount");
-  const totalEl = document.getElementById("cartTotal");
+  // update badge
+  const count = getCartItemCount();
+  cartCount.textContent = count;
+  cartCount.dataset.count = count;
 
-  const entries = Object.values(state.cart);
-  itemsEl.innerHTML = "";
+  // animate badge
+  cartCount.animate([
+    { transform: 'scale(1.6)', background: 'var(--text)' },
+    { transform: 'scale(1)',   background: 'var(--accent)' },
+  ], { duration: 350, easing: 'cubic-bezier(.34,1.56,.64,1)' });
 
-  if (entries.length === 0) {
-    const empty = document.createElement("p");
-    empty.className = "empty-state";
-    empty.textContent = "Your cart is empty.";
-    itemsEl.appendChild(empty);
-  } else {
-    for (const item of entries) {
-      const row = document.createElement("div");
-      row.className = "cart-item";
-      row.innerHTML = `
-        <img src="${item.image_url || item.image || ''}" alt="${item.name}">
-        <div>
-          <p class="name">${item.name}</p>
-          <p class="meta">${formatCurrency(item.price)} × ${item.quantity}</p>
-        </div>
-        <div class="qty-control">
-          <button class="icon-button" data-cart-dec="${item.id}" aria-label="Decrease quantity">−</button>
-          <span>${item.quantity}</span>
-          <button class="icon-button" data-cart-inc="${item.id}" aria-label="Increase quantity">+</button>
-          <button class="icon-button" data-remove="${item.id}" aria-label="Remove item">🗑</button>
-        </div>
-      `;
-      itemsEl.appendChild(row);
-    }
+  // update total
+  cartTotalEl.textContent = formatPrice(getCartTotal());
+
+  // render items
+  if (!state.cart.length) {
+    cartItems.innerHTML = `
+      <div class="cart-empty" role="status">
+        <span class="cart-empty-icon" aria-hidden="true">🛒</span>
+        <span>Your cart is empty.</span>
+      </div>`;
+    return;
   }
 
-  countEl.textContent = String(getCartCount(state.cart));
-  totalEl.textContent = formatCurrency(getCartTotal(state.cart));
+  cartItems.innerHTML = state.cart.map(({ product, qty }) => `
+    <div class="cart-item" data-id="${product.id}">
+      <div class="cart-item-emoji" aria-hidden="true">${product.emoji}</div>
+      <div class="cart-item-info">
+        <span class="cart-item-name">${product.name}</span>
+        <span class="cart-item-price">${formatPrice(product.price * qty)}</span>
+      </div>
+      <div class="cart-item-controls">
+        <div class="qty-controls" role="group" aria-label="Quantity for ${product.name}">
+          <button class="qty-btn" data-action="dec" data-id="${product.id}" aria-label="Decrease quantity">−</button>
+          <span class="qty-value" aria-live="polite">${qty}</span>
+          <button class="qty-btn" data-action="inc" data-id="${product.id}" aria-label="Increase quantity">+</button>
+        </div>
+        <button class="remove-btn" data-action="remove" data-id="${product.id}" aria-label="Remove ${product.name}">Remove</button>
+      </div>
+    </div>`).join('');
 }
 
-// Event Handlers
-function onAdd(id) {
-  const product = state.products.find(p => String(p.id) === String(id));
+// ── Cart Operations ──────────────────────────────────────────────────────────
+function addToCart(productId) {
+  const product = PRODUCTS.find(p => p.id === productId);
   if (!product) return;
-  const existing = state.cart[id] || { ...product, quantity: 0 };
-  existing.quantity += 1;
-  state.cart[id] = existing;
-  saveCart(state.cart);
-  renderProducts();
+  const existing = state.cart.find(c => c.product.id === productId);
+  if (existing) {
+    existing.qty += 1;
+  } else {
+    state.cart.push({ product, qty: 1 });
+  }
   renderCart();
+  renderProducts();        // refresh "Added" state
 }
 
-function onInc(id) {
-  if (!state.cart[id]) onAdd(id); else { state.cart[id].quantity += 1; saveCart(state.cart); renderProducts(); renderCart(); }
+function updateQty(productId, delta) {
+  const item = state.cart.find(c => c.product.id === productId);
+  if (!item) return;
+  item.qty = Math.max(0, item.qty + delta);
+  if (item.qty === 0) removeFromCart(productId);
+  else { renderCart(); renderProducts(); }
 }
-function onDec(id) {
-  if (!state.cart[id]) return;
-  state.cart[id].quantity -= 1;
-  if (state.cart[id].quantity <= 0) delete state.cart[id];
-  saveCart(state.cart);
-  renderProducts();
+
+function removeFromCart(productId) {
+  state.cart = state.cart.filter(c => c.product.id !== productId);
   renderCart();
-}
-function onRemove(id) {
-  if (!state.cart[id]) return;
-  delete state.cart[id];
-  saveCart(state.cart);
   renderProducts();
-  renderCart();
 }
 
-function attachGlobalHandlers() {
-  document.addEventListener("click", (e) => {
-    const t = e.target;
-    if (!(t instanceof Element)) return;
-    const add = t.getAttribute("data-add");
-    const inc = t.getAttribute("data-inc");
-    const dec = t.getAttribute("data-dec");
-    const cinc = t.getAttribute("data-cart-inc");
-    const cdec = t.getAttribute("data-cart-dec");
-    const remove = t.getAttribute("data-remove");
-    if (add) onAdd(add);
-    if (inc) onInc(inc);
-    if (dec) onDec(dec);
-    if (cinc) onInc(cinc);
-    if (cdec) onDec(cdec);
-    if (remove) onRemove(remove);
-  });
+// ── Cart Drawer ──────────────────────────────────────────────────────────────
+function openCart() {
+  cartDrawer.setAttribute('aria-hidden', 'false');
+  cartButton.setAttribute('aria-expanded', 'true');
+  document.body.style.overflow = 'hidden';
+  closeCart.focus();
+}
 
-  const searchInput = document.getElementById("searchInput");
-  searchInput.addEventListener("input", (e) => {
-    state.search = e.target.value;
-    renderProducts();
-  });
+function closeCartDrawer() {
+  cartDrawer.setAttribute('aria-hidden', 'true');
+  cartButton.setAttribute('aria-expanded', 'false');
+  document.body.style.overflow = '';
+  cartButton.focus();
+}
 
-  const sortSelect = document.getElementById("sortSelect");
-  sortSelect.addEventListener("change", (e) => {
-    state.sort = e.target.value;
-    renderProducts();
-  });
+// ── Event Delegation ─────────────────────────────────────────────────────────
+productGrid.addEventListener('click', e => {
+  const btn = e.target.closest('.add-to-cart');
+  if (btn) addToCart(Number(btn.dataset.id));
+});
 
-  const currencySelect = document.getElementById("currencySelect");
-  if (currencySelect) {
-    currencySelect.value = state.currency;
-    currencySelect.addEventListener("change", (e) => {
-      state.currency = e.target.value;
-      saveCurrency(state.currency);
-      renderProducts();
-      renderCart();
+cartItems.addEventListener('click', e => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  const id = Number(btn.dataset.id);
+  const action = btn.dataset.action;
+  if (action === 'inc')    updateQty(id, +1);
+  if (action === 'dec')    updateQty(id, -1);
+  if (action === 'remove') removeFromCart(id);
+});
+
+cartButton.addEventListener('click', openCart);
+closeCart.addEventListener('click', closeCartDrawer);
+cartBackdrop.addEventListener('click', closeCartDrawer);
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && cartDrawer.getAttribute('aria-hidden') === 'false') {
+    closeCartDrawer();
+  }
+});
+
+checkoutButton.addEventListener('click', () => {
+  if (!state.cart.length) return;
+  // Friendly checkout simulation
+  const total = formatPrice(getCartTotal());
+  const count = getCartItemCount();
+  closeCartDrawer();
+  setTimeout(() => {
+    const msg = document.createElement('div');
+    msg.setAttribute('role', 'alert');
+    Object.assign(msg.style, {
+      position: 'fixed', bottom: '2rem', left: '50%',
+      transform: 'translateX(-50%) translateY(100px)',
+      background: 'var(--accent)', color: '#0a0a0a',
+      padding: '.9rem 2rem', borderRadius: '8px',
+      fontFamily: 'var(--font-body)', fontWeight: '600',
+      fontSize: '.85rem', letterSpacing: '.02em',
+      boxShadow: '0 8px 40px rgba(201,168,76,.4)',
+      zIndex: '9998', transition: 'transform .4s cubic-bezier(.34,1.56,.64,1)',
     });
-  }
-
-  const cartButton = document.getElementById("cartButton");
-  const cartDrawer = document.getElementById("cartDrawer");
-  const cartBackdrop = document.getElementById("cartBackdrop");
-  const closeCart = document.getElementById("closeCart");
-  function toggleCart(open) {
-    const isOpen = open ?? !cartDrawer.classList.contains("open");
-    cartDrawer.classList.toggle("open", isOpen);
-    cartDrawer.setAttribute("aria-hidden", String(!isOpen));
-    cartButton.setAttribute("aria-expanded", String(isOpen));
-  }
-  cartButton.addEventListener("click", () => toggleCart());
-  cartBackdrop.addEventListener("click", () => toggleCart(false));
-  closeCart.addEventListener("click", () => toggleCart(false));
-
-  const checkout = document.getElementById("checkoutButton");
-  checkout.addEventListener("click", () => {
-    if (Object.keys(state.cart).length === 0) {
-      alert("Your cart is empty.");
-      return;
-    }
-    submitOrder().catch(err => {
-      console.error(err);
-      alert("Checkout failed. See console.");
+    msg.textContent = `✓ Order placed! ${count} item${count > 1 ? 's' : ''} · ${total}`;
+    document.body.appendChild(msg);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => { msg.style.transform = 'translateX(-50%) translateY(0)'; });
     });
-  });
-}
+    setTimeout(() => {
+      msg.style.transform = 'translateX(-50%) translateY(100px)';
+      setTimeout(() => msg.remove(), 500);
+    }, 3500);
+    state.cart = [];
+    renderCart();
+    renderProducts();
+  }, 300);
+});
 
-function init() {
-  document.getElementById("year").textContent = String(new Date().getFullYear());
-  fetchProducts().then(() => renderProducts());
-  renderCart();
-  attachGlobalHandlers();
-}
+// ── Search / Sort / Currency ─────────────────────────────────────────────────
+let searchTimer;
+searchInput.addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    state.search = searchInput.value;
+    renderProducts();
+  }, 200);
+});
 
-document.addEventListener("DOMContentLoaded", init);
+sortSelect.addEventListener('change', () => {
+  state.sort = sortSelect.value;
+  renderProducts();
+});
 
-async function fetchProducts() {
-  try {
-    const res = await fetch(`${API_BASE}/products/`);
-    if (!res.ok) throw new Error(`Failed to fetch products: ${res.status}`);
-    const data = await res.json();
-    const fromApi = Array.isArray(data) ? data : data.results || [];
-    state.products = fromApi.length ? fromApi : SAMPLE_PRODUCTS;
-  } catch (e) {
-    console.error(e);
-    state.products = SAMPLE_PRODUCTS;
-  }
-}
-
-async function submitOrder() {
-  const items = Object.values(state.cart).map(item => ({
-    product: item.id,
-    quantity: item.quantity,
-  }));
-  const payload = {
-    customer_name: "Guest",
-    customer_email: "guest@example.com",
-    customer_address: "N/A",
-    items,
-    currency: state.currency,
-  };
-  const res = await fetch(`${API_BASE}/orders/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Order failed: ${res.status} ${text}`);
-  }
-  const data = await res.json();
-  alert(`Order placed! ID: ${data.order_id}`);
-  state.cart = {};
-  saveCart(state.cart);
+currencySelect.addEventListener('change', () => {
+  state.currency = currencySelect.value;
   renderProducts();
   renderCart();
-}
+});
 
+// ── Footer Year ──────────────────────────────────────────────────────────────
+$('year').textContent = new Date().getFullYear();
 
+// ── Init ─────────────────────────────────────────────────────────────────────
+renderProducts();
+renderCart();
